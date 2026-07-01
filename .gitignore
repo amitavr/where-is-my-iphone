@@ -1,0 +1,11 @@
+# Dependencies / test tooling — not part of the game
+node_modules/
+package.json
+package-lock.json
+_test*.js
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp

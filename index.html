@@ -236,8 +236,15 @@
   .pkg-tag{display:inline-block;margin-top:3px;background:var(--gold);color:#4a3400;font-weight:800;
     font-size:9px;padding:2px 7px;border-radius:999px;white-space:nowrap;box-shadow:0 4px 8px rgba(0,0,0,.18)}
   .dust{position:absolute;bottom:20px;left:52%;font-size:28px;opacity:0;transform:translate(-50%,0)}
+  .logo-run{position:absolute;bottom:16px;left:78%;transform:translateX(-50%);opacity:0;
+    white-space:nowrap;text-align:center;will-change:left}
+  .logo-run img{height:26px;display:block;margin:0 auto;filter:drop-shadow(0 4px 4px rgba(0,0,0,.2));animation:runbob .26s linear infinite}
+  .logo-run .cry{display:inline-block;margin-top:2px;background:#fff;color:var(--bad);font-weight:800;
+    font-size:9px;padding:2px 7px;border-radius:999px;box-shadow:0 4px 8px rgba(0,0,0,.18)}
   @keyframes taxiIn{from{left:115%}to{left:56%}}
   @keyframes taxiOut{from{left:56%}to{left:-40%}}
+  @keyframes logoChase{from{left:78%}to{left:-55%}}
+  @keyframes runbob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-5px) rotate(3deg)}}
   @keyframes pkgHop{
     0%{transform:translate(-50%,0) scale(1);opacity:1}
     35%{transform:translate(-50%,-20px) scale(1);opacity:1}
@@ -294,6 +301,7 @@
     .road{height:84px}
     .taxi{font-size:40px}
     .pkg .box{font-size:30px}
+    .logo-run img{height:22px}
   }
 </style>
 </head>
@@ -693,7 +701,16 @@
         dust.textContent="💨";
         dust.style.animation="dustPuff .8s ease-out forwards";
         honk();
-        setTimeout(function(){ if(done) done(); }, 1150);
+        // 4) the Cellpoint logo sprints after the taxi, begging for its phones
+        var logo=document.getElementById("logoRun");
+        if(logo){
+          setTimeout(function(){
+            logo.style.opacity="1";
+            logo.style.animation="logoChase 1.7s linear forwards";
+            whoosh();
+          }, 320);
+        }
+        setTimeout(function(){ if(done) done(); }, 2150);
       }, 620);
     }, 1150);
   }
@@ -717,6 +734,7 @@
         +'  <div class="pkg" id="pkg"><span class="box">📦</span><span class="pkg-tag">50× S26 Ultra</span></div>'
         +'  <div class="dust" id="dust"></div>'
         +'  <div class="taxi" id="taxi">🚕</div>'
+        +'  <div class="logo-run" id="logoRun"><img src="images.png" alt="Cellpoint"><span class="cry">Wait!! My phones!! 😭</span></div>'
         +'</div>'
         +'<div id="afterTaxi"></div>';
       confettiBurst();
