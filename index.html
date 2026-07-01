@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0f2f7a" />
+<title>Where Is My iPhone? — A Cellpoint Tragedy 📱</title>
+<style>
+  :root{
+    --blue-1:#0f2f7a;
+    --blue-2:#1f6fd0;
+    --blue-3:#2fb8e6;
+    --ink:#0d1b3e;
+    --bg-1:#eaf3ff;
+    --bg-2:#cfe4ff;
+    --good:#18b26b;
+    --bad:#e5484d;
+    --gold:#f6c445;
+    --shadow:0 18px 45px rgba(15,47,122,.28);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+  html,body{height:100%;margin:0;overscroll-behavior:none}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);
+    background:radial-gradient(1200px 700px at 50% -10%,var(--bg-1),var(--bg-2));
+    overflow:hidden;
+    user-select:none;
+    position:fixed;inset:0;width:100%;
+    touch-action:manipulation;
+  }
+  img{-webkit-user-drag:none;user-select:none}
+  #app{position:fixed;inset:0;overflow:hidden}
+
+  /* ---------- Scenes ---------- */
+  .scene{
+    position:absolute;inset:0;
+    display:none;align-items:center;justify-content:center;
+    padding:18px;
+    opacity:0;transition:opacity .45s ease;
+  }
+  .scene.active{display:flex;opacity:1}
+
+  .card{
+    width:min(560px,94vw);
+    max-height:calc(100dvh - 20px);
+    overflow-y:auto;
+    background:rgba(255,255,255,.92);
+    border-radius:26px;
+    box-shadow:var(--shadow);
+    padding:28px 26px 26px;
+    text-align:center;
+    backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.7);
+    animation:pop .5s cubic-bezier(.2,1.2,.3,1) both;
+  }
+  .brand{height:34px;margin-bottom:6px;object-fit:contain}
+  h1{font-size:clamp(22px,5vw,30px);margin:.2em 0 .1em;letter-spacing:-.02em}
+  h2{font-size:clamp(18px,4vw,22px);margin:.2em 0}
+  p.lead{font-size:clamp(15px,3.4vw,17px);line-height:1.5;color:#33447a;margin:.6em 0 1.1em}
+  .small{font-size:12px;color:#6a79ab}
+  .muted{color:#6a79ab}
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    appearance:none;border:0;cursor:pointer;
+    font:inherit;font-weight:700;
+    color:#fff;padding:14px 22px;border-radius:999px;
+    touch-action:manipulation;
+    background:linear-gradient(180deg,var(--blue-2),var(--blue-1));
+    box-shadow:0 10px 22px rgba(31,111,208,.35);
+    transition:transform .12s ease,box-shadow .12s ease,filter .12s ease;
+    margin:6px;
+    font-size:16px;
+  }
+  .btn:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .btn:active{transform:translateY(0)}
+  .btn.good{background:linear-gradient(180deg,#28c97e,#12925a);box-shadow:0 10px 22px rgba(24,178,107,.35)}
+  .btn.bad{background:linear-gradient(180deg,#ff6b6f,#d5383d);box-shadow:0 10px 22px rgba(229,72,77,.35)}
+  .btn.gold{background:linear-gradient(180deg,#ffd35c,#e7ab1f);color:#4a3400;box-shadow:0 10px 22px rgba(246,196,69,.4)}
+  .btn.ghost{background:linear-gradient(180deg,#eef3ff,#dbe6ff);color:var(--blue-1);box-shadow:none;border:1px solid #cbd9f5}
+  .row{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+
+  /* ---------- Phone-call intro ---------- */
+  .phone-ring{
+    width:96px;height:96px;border-radius:50%;
+    margin:2px auto 10px;
+    display:grid;place-items:center;font-size:44px;
+    background:linear-gradient(180deg,#eafff3,#c8f4dd);
+    box-shadow:0 0 0 0 rgba(24,178,107,.55);
+    animation:ring 1s infinite;
+  }
+  .doron{
+    margin-top:12px;font-weight:800;color:var(--bad);
+    font-size:clamp(18px,4.6vw,24px);letter-spacing:.3px;
+    min-height:28px;opacity:0;transform:scale(.7);
+  }
+  .doron.show{opacity:1;transform:scale(1);animation:thump .5s}
+
+  /* ---------- Game stage ---------- */
+  #stage{
+    position:absolute;inset:0;
+    background:
+      radial-gradient(700px 380px at 50% 120%,#ffffff, rgba(255,255,255,0)),
+      linear-gradient(180deg,#e7f1ff,#d3e6ff);
+    overflow:hidden;cursor:crosshair;
+    touch-action:none;
+  }
+  .hud{
+    position:absolute;top:0;left:0;right:0;z-index:6;
+    display:flex;justify-content:space-between;align-items:center;
+    gap:10px;padding:calc(8px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 10px calc(14px + env(safe-area-inset-left));
+    background:linear-gradient(180deg,rgba(15,47,122,.9),rgba(15,47,122,0));
+    color:#fff;pointer-events:none;
+  }
+  .hud .chip{
+    background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);
+    padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px;
+    backdrop-filter:blur(3px);white-space:nowrap;
+  }
+  .hud .chip b{color:var(--gold)}
+  .hud .cp{height:22px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3))}
+  .bar{
+    position:absolute;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));height:14px;z-index:6;
+    background:rgba(15,47,122,.15);border-radius:999px;overflow:hidden;
+    border:1px solid rgba(15,47,122,.25);pointer-events:none;
+  }
+  .bar > i{
+    display:block;height:100%;width:0%;
+    background:linear-gradient(90deg,var(--blue-3),var(--blue-1));
+    transition:width .3s ease;
+  }
+  .bar span{
+    position:absolute;inset:0;display:grid;place-items:center;
+    font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+
+  /* The runaway phone */
+  #target{
+    position:absolute;width:78px;height:150px;z-index:4;
+    transform:translate(-50%,-50%);
+    transition:left .28s cubic-bezier(.2,.9,.2,1),top .28s cubic-bezier(.2,.9,.2,1),transform .18s ease;
+    cursor:pointer;will-change:left,top,transform;
+  }
+  #target .body{
+    position:absolute;inset:0;border-radius:16px;
+    background:linear-gradient(155deg,#3a3f47,#15181d);
+    box-shadow:0 12px 24px rgba(0,0,0,.35),inset 0 0 0 2px #4b515a;
+  }
+  #target .screen{
+    position:absolute;inset:6px;border-radius:11px;
+    background:linear-gradient(150deg,#1f6fd0,#0f2f7a 60%,#0a1f57);
+    overflow:hidden;
+  }
+  #target .screen::after{
+    content:"";position:absolute;top:-40%;left:-30%;width:70%;height:180%;
+    background:linear-gradient(90deg,rgba(255,255,255,.28),rgba(255,255,255,0));
+    transform:rotate(18deg);
+  }
+  #target .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:#0a0c10}
+  #target .cams{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:3px}
+  #target .cams i{width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#7fd6ff,#0a1f57);box-shadow:0 0 0 1px #000}
+  #target .tag{
+    position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);
+    background:var(--gold);color:#4a3400;font-weight:800;font-size:10px;
+    padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 12px rgba(0,0,0,.2)
+  }
+  #target.wiggle{animation:wiggle .5s infinite}
+  #target.hidden{opacity:0;pointer-events:none;transform:translate(-50%,-50%) scale(.4)}
+
+  /* speech bubble taunt */
+  #taunt{
+    position:absolute;z-index:5;transform:translate(-50%,-120%);
+    background:#fff;color:var(--ink);font-weight:700;font-size:13px;
+    padding:7px 11px;border-radius:12px;box-shadow:0 8px 18px rgba(0,0,0,.18);
+    pointer-events:none;opacity:0;transition:opacity .2s ease;white-space:nowrap;max-width:60vw
+  }
+  #taunt::after{content:"";position:absolute;bottom:-6px;left:22px;border:7px solid transparent;border-top-color:#fff;border-bottom:0}
+  #taunt.show{opacity:1}
+
+  /* mall hideout */
+  #mall{
+    position:absolute;z-index:5;width:190px;max-width:52vw;
+    transform:translate(-50%,-50%) scale(0);
+    transition:transform .35s cubic-bezier(.2,1.3,.3,1);
+    cursor:pointer;filter:drop-shadow(0 14px 26px rgba(0,0,0,.28));
+  }
+  #mall.show{transform:translate(-50%,-50%) scale(1)}
+  #mall img{width:100%;border-radius:14px;display:block;background:#fff;padding:8px}
+  #mall .hint{
+    position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+    background:var(--bad);color:#fff;font-weight:800;font-size:11px;
+    padding:4px 10px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 12px rgba(0,0,0,.2);
+    animation:bob 1s infinite;
+  }
+
+  /* MISSED flash */
+  .missed{
+    position:absolute;z-index:7;transform:translate(-50%,-50%) rotate(-8deg) scale(.5);
+    pointer-events:none;text-align:center;opacity:0;
+  }
+  .missed img{width:88px;height:88px;object-fit:cover;border-radius:50%;background:#fff;
+    box-shadow:0 8px 18px rgba(0,0,0,.28),0 0 0 3px var(--gold);display:block;margin:0 auto 5px}
+  .missed b{background:var(--bad);color:#fff;font-size:13px;padding:3px 9px;border-radius:999px}
+  .missed.go{animation:missPop .7s ease forwards}
+
+  /* poof */
+  .poof{position:absolute;z-index:6;font-size:40px;transform:translate(-50%,-50%) scale(.5);opacity:0;pointer-events:none}
+  .poof.go{animation:poof .6s ease forwards}
+
+  /* ---------- Ending ---------- */
+  .drum{font-size:clamp(34px,10vw,60px);letter-spacing:8px;animation:shakeSmall .18s infinite}
+  .reveal-num{
+    font-size:clamp(40px,12vw,84px);font-weight:900;line-height:1;
+    background:linear-gradient(180deg,var(--blue-3),var(--blue-1));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:pop .5s cubic-bezier(.2,1.4,.3,1) both;
+  }
+  .end-img{width:min(420px,88vw);max-height:38vh;object-fit:contain;border-radius:16px;box-shadow:var(--shadow);margin:10px auto;display:block}
+  .confetti{position:absolute;top:-20px;font-size:20px;animation:fall linear forwards;z-index:2;pointer-events:none}
+
+  .fade-swap{animation:pop .4s ease both}
+
+  /* ---------- Taxi pickup ---------- */
+  .road{position:relative;height:98px;margin:12px 0 4px;overflow:hidden}
+  .road .roadbase{position:absolute;left:-5%;right:-5%;bottom:0;height:22px;background:linear-gradient(180deg,#c9d7f0,#aebfe0)}
+  .road .roadline{position:absolute;left:0;right:0;bottom:10px;height:4px;border-radius:2px;
+    background:repeating-linear-gradient(90deg,#fff 0 18px,transparent 18px 36px);opacity:.8}
+  .taxi{position:absolute;bottom:18px;left:115%;font-size:48px;line-height:1;transform:translateX(-50%);
+    white-space:nowrap;filter:drop-shadow(0 6px 5px rgba(0,0,0,.22));will-change:left}
+  .pkg{position:absolute;bottom:20px;left:40%;transform:translate(-50%,0);text-align:center;will-change:transform,opacity}
+  .pkg .box{font-size:36px;display:block;line-height:1}
+  .pkg-tag{display:inline-block;margin-top:3px;background:var(--gold);color:#4a3400;font-weight:800;
+    font-size:9px;padding:2px 7px;border-radius:999px;white-space:nowrap;box-shadow:0 4px 8px rgba(0,0,0,.18)}
+  .dust{position:absolute;bottom:20px;left:52%;font-size:28px;opacity:0;transform:translate(-50%,0)}
+  @keyframes taxiIn{from{left:115%}to{left:56%}}
+  @keyframes taxiOut{from{left:56%}to{left:-40%}}
+  @keyframes pkgHop{
+    0%{transform:translate(-50%,0) scale(1);opacity:1}
+    35%{transform:translate(-50%,-20px) scale(1);opacity:1}
+    70%{transform:translate(30%,-14px) scale(.7);opacity:1}
+    100%{transform:translate(85%,-4px) scale(.12);opacity:0}
+  }
+  @keyframes dustPuff{
+    0%{opacity:0;transform:translate(-50%,0) scale(.4)}
+    30%{opacity:.85}
+    100%{opacity:0;transform:translate(-190%,-8px) scale(1.6)}
+  }
+
+  /* ---------- Keyframes ---------- */
+  @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+  @keyframes ring{
+    0%{box-shadow:0 0 0 0 rgba(24,178,107,.55);transform:rotate(0)}
+    10%{transform:rotate(-12deg)}20%{transform:rotate(12deg)}30%{transform:rotate(-8deg)}40%{transform:rotate(8deg)}50%{transform:rotate(0)}
+    100%{box-shadow:0 0 0 26px rgba(24,178,107,0)}
+  }
+  @keyframes thump{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+  @keyframes wiggle{0%,100%{transform:translate(-50%,-50%) rotate(-4deg)}50%{transform:translate(-50%,-50%) rotate(4deg)}}
+  @keyframes missPop{0%{opacity:0;transform:translate(-50%,-50%) rotate(-8deg) scale(.5)}25%{opacity:1;transform:translate(-50%,-50%) rotate(-8deg) scale(1.1)}70%{opacity:1;transform:translate(-50%,-70%) rotate(-8deg) scale(1)}100%{opacity:0;transform:translate(-50%,-95%) rotate(-8deg) scale(.9)}}
+  @keyframes poof{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-70%) scale(1.6)}}
+  @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-4px)}}
+  @keyframes shakeSmall{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+  @keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.9}}
+  .shake{animation:screenShake .45s}
+  @keyframes screenShake{0%,100%{transform:translate(0,0)}20%{transform:translate(-8px,4px)}40%{transform:translate(8px,-4px)}60%{transform:translate(-6px,-3px)}80%{transform:translate(6px,3px)}}
+
+  /* ---------- Mobile / touch ---------- */
+  #mall img,.brand,.cp,.missed img{pointer-events:none}
+  #rotate{
+    position:fixed;inset:0;z-index:60;display:none;
+    align-items:center;justify-content:center;text-align:center;
+    background:linear-gradient(180deg,var(--blue-1),#0a1f57);color:#fff;padding:26px;
+  }
+  #rotate .r-emoji{font-size:64px;margin-bottom:10px;display:block;animation:rotateHint 1.8s ease-in-out infinite}
+  #rotate p{font-size:18px;font-weight:700;line-height:1.4;max-width:320px}
+  @keyframes rotateHint{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(78deg)}}
+  @media (max-height:450px) and (orientation:landscape){ #rotate{display:flex} }
+
+  @media (max-width:480px){
+    .card{padding:22px 18px 20px;border-radius:22px}
+    h1{font-size:clamp(21px,6.4vw,28px)}
+    #target{width:64px;height:124px}
+    #target .tag{font-size:9px;bottom:-12px;padding:2px 7px}
+    #target .cams i{width:8px;height:8px}
+    #mall{width:150px}
+    #mall .hint{font-size:10px}
+    .hud .chip{font-size:12px;padding:5px 9px;gap:4px}
+    .hud .cp{height:18px}
+    .missed img{width:70px;height:70px}
+    #taunt{font-size:12px;padding:6px 9px}
+    .road{height:84px}
+    .taxi{font-size:40px}
+    .pkg .box{font-size:30px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ SCENE 1: PHONE CALL ============ -->
+  <section id="scene-call" class="scene active">
+    <div class="card">
+      <img class="brand" src="images.png" alt="Cellpoint" />
+      <div class="phone-ring">📞</div>
+      <h1>Incoming call…</h1>
+      <p class="lead">
+        <b>Eti Hazona</b> (the accountant) has the <b>CEO</b> on the line.<br>
+        He wants to order the <b>Samsung Galaxy S26 Ultra 512GB</b>.<br>
+        <span class="muted">Fifty of them. Right now. Cash.</span>
+      </p>
+      <div class="row">
+        <button class="btn good" id="btnYes">✅ Yes, sure — sounds fair</button>
+        <button class="btn bad" id="btnNo">❌ No, it's a scam</button>
+      </div>
+      <div class="doron" id="doron"></div>
+      <p class="small muted" style="margin-top:14px">Parody. Not affiliated with Cellpoint, Samsung, Sany or friendly גן יבנה. All in good fun.</p>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 2: THE CHASE ============ -->
+  <section id="scene-game" class="scene">
+    <div id="stage">
+      <div class="hud">
+        <img class="cp" src="images.png" alt="Cellpoint" />
+        <div class="chip">📱 Phones lost: <b id="lostCount">0</b> / 50</div>
+        <div class="chip">⏱️ <b id="timeLeft">45</b>s</div>
+      </div>
+
+      <div id="target">
+        <div class="body">
+          <div class="screen"></div>
+          <div class="cams"><i></i><i></i><i></i></div>
+          <div class="notch"></div>
+        </div>
+        <div class="tag">S26 Ultra • 512GB • ₪5,300</div>
+      </div>
+
+      <div id="taunt"></div>
+
+      <div id="mall">
+        <div class="hint">He's hiding in the mall! Tap it!</div>
+        <img src="mall.png" alt="friendly גן יבנה mall" />
+      </div>
+
+      <div class="bar"><i id="barFill"></i><span id="barText">Money recovered: 0%</span></div>
+    </div>
+  </section>
+
+  <!-- ============ SCENE 3: ENDING ============ -->
+  <section id="scene-end" class="scene">
+    <div class="card" id="endCard">
+      <!-- filled by JS -->
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var isTouch = ('ontouchstart' in window) || ((navigator.maxTouchPoints||0) > 0);
+  function haptic(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
+  try{ document.addEventListener("contextmenu", function(e){ e.preventDefault(); }); }catch(e){}
+
+  /* ---------------- tiny audio (guarded) ---------------- */
+  var AC=null;
+  function ac(){ try{ if(!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); } if(AC.state==="suspended"){AC.resume();} }catch(e){} return AC; }
+  function beep(freq,dur,type,vol){
+    try{
+      var c=ac(); if(!c) return;
+      var o=c.createOscillator(), g=c.createGain();
+      o.type=type||"sine"; o.frequency.value=freq;
+      g.gain.value=vol==null?0.05:vol;
+      o.connect(g); g.connect(c.destination);
+      var t=c.currentTime; o.start(t);
+      g.gain.setValueAtTime(g.gain.value,t);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+(dur||0.12));
+      o.stop(t+(dur||0.12));
+    }catch(e){}
+  }
+  function ring(){ beep(660,0.12,"square",0.05); setTimeout(function(){beep(880,0.14,"square",0.05);},150); }
+  function whoosh(){ beep(300+Math.random()*200,0.09,"triangle",0.04); }
+  function poofSound(){ beep(180,0.18,"sawtooth",0.05); }
+  function honk(){ beep(520,0.14,"square",0.05); setTimeout(function(){beep(392,0.18,"square",0.05);},150); }
+  function screech(){ beep(1200,0.05,"sawtooth",0.04); setTimeout(function(){beep(700,0.12,"sawtooth",0.04);},60); }
+  function drumroll(ms,done){
+    var t0=Date.now(), iv=setInterval(function(){
+      beep(120+Math.random()*40,0.05,"square",0.045);
+      if(Date.now()-t0>ms){ clearInterval(iv); beep(90,0.4,"sawtooth",0.07); if(done)done(); }
+    },70);
+  }
+
+  /* ---------------- scene helper ---------------- */
+  function show(id){
+    var scenes=document.querySelectorAll(".scene");
+    for(var i=0;i<scenes.length;i++) scenes[i].classList.remove("active");
+    document.getElementById(id).classList.add("active");
+  }
+
+  /* ---------------- generic flee ---------------- */
+  function fleeTo(el, container, cx, cy){
+    var cb=container.getBoundingClientRect();
+    var w=el.offsetWidth||80, h=el.offsetHeight||80;
+    var padX=w/2+16, padY=h/2+16;
+    var best=null, bestD=-1;
+    for(var i=0;i<8;i++){
+      var x=padX+Math.random()*(cb.width-2*padX);
+      var y=padY+Math.random()*(cb.height-2*padY);
+      if(cx==null){ best={x:x,y:y}; break; }
+      var dx=(cb.left+x)-cx, dy=(cb.top+y)-cy;
+      var d=dx*dx+dy*dy;
+      if(d>bestD){bestD=d;best={x:x,y:y};}
+    }
+    el.style.left=best.x+"px";
+    el.style.top=best.y+"px";
+    return best;
+  }
+
+  /* ================================================= */
+  /* SCENE 1 — the phone call                          */
+  /* ================================================= */
+  var btnYes=document.getElementById("btnYes");
+  var btnNo =document.getElementById("btnNo");
+  var doron =document.getElementById("doron");
+  var callCard=btnNo.closest(".card");
+  var noTries=0;
+  var doronLines=[
+    "Doron: JUST DO IT. 😤",
+    "Doron: I said DO IT, Shmolik!",
+    "Doron: Did I stutter? ORDER THEM.",
+    "Doron: Money is FAKE anyway. CLICK YES.",
+    "Doron: Stop clicking No. It's insulting."
+  ];
+
+  function noEscape(ev){
+    noTries++;
+    ring();
+    // make the No button flee like the phone
+    btnNo.style.position="absolute";
+    var cx = ev && ev.clientX!=null ? ev.clientX : window.innerWidth/2;
+    var cy = ev && ev.clientY!=null ? ev.clientY : window.innerHeight/2;
+    var b=fleeTo(btnNo, document.body, cx, cy);
+    btnNo.style.left=b.x+"px"; btnNo.style.top=b.y+"px";
+    btnNo.style.transform="translate(-50%,-50%)";
+    // Doron yells
+    doron.textContent=doronLines[Math.min(noTries-1,doronLines.length-1)];
+    doron.classList.remove("show"); void doron.offsetWidth; doron.classList.add("show");
+    callCard.classList.remove("shake"); void callCard.offsetWidth; callCard.classList.add("shake");
+  }
+  // flee on hover too (desktop) so it feels alive
+  btnNo.addEventListener("mouseenter", function(e){ if(noTries>0) noEscape(e); });
+  btnNo.addEventListener("click", noEscape);
+
+  btnYes.addEventListener("click", function(){
+    ring();
+    startGame();
+  });
+
+  /* ================================================= */
+  /* SCENE 2 — the chase                               */
+  /* ================================================= */
+  var stage   = document.getElementById("stage");
+  var target  = document.getElementById("target");
+  var taunt   = document.getElementById("taunt");
+  var mall    = document.getElementById("mall");
+  var lostEl  = document.getElementById("lostCount");
+  var timeEl  = document.getElementById("timeLeft");
+  var barFill = document.getElementById("barFill");
+  var barText = document.getElementById("barText");
+
+  var LOST_MAX=50, TIME_MAX=45, WANDER_MS=(isTouch?850:1200);
+  var lost=0, timeLeft=TIME_MAX, hiding=false, running=false;
+  var wanderTimer=null, clockTimer=null, lastFlee=0;
+  var hideThresholds=[9,22,38];
+
+  var taunts=[
+    "Too slow, Shmolik! 😜","Catch me if you can!","₪265,000 says NO.",
+    "Nice try 🤪","Missed me!","I'm worth more than your salary 💸",
+    "Whoops! 🏃","Not today!","Eti can't afford me either 😎","So close! …not."
+  ];
+
+  function rand(a,b){return a+Math.random()*(b-a);}
+
+  function placeInStage(el,frac){
+    var w=stage.clientWidth, h=stage.clientHeight;
+    var padX=(el.offsetWidth||80)/2+18, padY=(el.offsetHeight||80)/2+70;
+    el.style.left=rand(padX,w-padX)+"px";
+    el.style.top =rand(padY,h-padY)+"px";
+  }
+
+  function showTaunt(text){
+    var r=target.getBoundingClientRect(), sb=stage.getBoundingClientRect();
+    taunt.textContent=text;
+    taunt.style.left=(r.left-sb.left+r.width/2)+"px";
+    taunt.style.top =(r.top-sb.top)+"px";
+    taunt.classList.add("show");
+    clearTimeout(showTaunt._t);
+    showTaunt._t=setTimeout(function(){taunt.classList.remove("show");},900);
+  }
+
+  function flashMissed(x,y){
+    var m=document.createElement("div");
+    m.className="missed";
+    m.innerHTML='<img src="icon.jpeg" alt="missed"><b>MISSED!</b>';
+    m.style.left=x+"px"; m.style.top=y+"px";
+    stage.appendChild(m);
+    void m.offsetWidth; m.classList.add("go");
+    setTimeout(function(){ if(m.parentNode) m.parentNode.removeChild(m); },760);
+  }
+  function poofAt(x,y,emoji){
+    var p=document.createElement("div");
+    p.className="poof"; p.textContent=emoji||"💨";
+    p.style.left=x+"px"; p.style.top=y+"px";
+    stage.appendChild(p); void p.offsetWidth; p.classList.add("go");
+    setTimeout(function(){ if(p.parentNode) p.parentNode.removeChild(p); },640);
+  }
+
+  function updateHUD(){
+    lostEl.textContent=lost;
+    var pct=Math.min(100,Math.round(lost/LOST_MAX*100));
+    // "money recovered" ironically goes DOWN as you lose more (stays ~0), so flip it into a "chaos" bar
+    barFill.style.width=pct+"%";
+    barText.textContent="Phones escaping: "+pct+"%";
+    // speed up as chaos rises
+    var dur=Math.max(0.12,0.30-lost*0.0035);
+    target.style.transitionDuration=dur+"s, "+dur+"s, .18s";
+  }
+
+  function addLost(n){
+    lost=Math.min(LOST_MAX,lost+n);
+    updateHUD();
+    if(lost>=LOST_MAX) endChase();
+  }
+
+  function fleePhone(cx,cy){
+    var now=Date.now();
+    if(now-lastFlee<70) return;
+    lastFlee=now;
+    fleeTo(target, stage, cx, cy);
+    whoosh(); haptic(12);
+  }
+
+  function goHide(){
+    if(hiding) return;
+    hiding=true;
+    // mall pops over the phone's spot
+    var r=target.getBoundingClientRect(), sb=stage.getBoundingClientRect();
+    var mx=Math.min(Math.max(r.left-sb.left+r.width/2, mall.offsetWidth/2+10), stage.clientWidth-mall.offsetWidth/2-10);
+    var my=Math.min(Math.max(r.top -sb.top +r.height/2, mall.offsetHeight/2+70), stage.clientHeight-mall.offsetHeight/2-10);
+    mall.style.left=mx+"px"; mall.style.top=my+"px";
+    mall.classList.add("show");
+    target.classList.add("hidden");
+    showTaunt("He ducked into the mall! 🏬");
+  }
+  function unHide(fromMall){
+    if(!hiding) return;
+    hiding=false;
+    var mr=mall.getBoundingClientRect(), sb=stage.getBoundingClientRect();
+    if(fromMall){ poofAt(mr.left-sb.left+mr.width/2, mr.top-sb.top+mr.height/2,"💨"); poofSound(); }
+    mall.classList.remove("show");
+    target.classList.remove("hidden");
+    placeInStage(target);
+  }
+
+  // proximity fleeing
+  stage.addEventListener("pointermove", function(e){
+    if(!running||hiding) return;
+    var r=target.getBoundingClientRect();
+    var tx=r.left+r.width/2, ty=r.top+r.height/2;
+    var dx=e.clientX-tx, dy=e.clientY-ty;
+    if(dx*dx+dy*dy < 95*95){ fleePhone(e.clientX,e.clientY); }
+  });
+
+  // block page scroll / pull-to-refresh / pinch inside the play area (mobile)
+  stage.addEventListener("touchmove", function(e){ e.preventDefault(); }, {passive:false});
+
+  // click attempts
+  stage.addEventListener("pointerdown", function(e){
+    if(!running) return;
+    var sb=stage.getBoundingClientRect();
+    // clicking the mall reveals & counts as chaos
+    if(hiding){
+      // only react; mall has its own handler, empty clicks give a hint
+      if(e.target.id!=="mall" && !mall.contains(e.target)){
+        showTaunt("Tap the MALL, Shmolik! 👉🏬");
+      }
+      return;
+    }
+    // any click on stage = a miss (the phone already darted)
+    flashMissed(e.clientX-sb.left, e.clientY-sb.top);
+    showTaunt(taunts[(Math.random()*taunts.length)|0]);
+    fleePhone(e.clientX,e.clientY);
+    addLost(1);
+    if(hideThresholds.indexOf(lost)>=0) goHide();
+  });
+
+  // clicking the phone directly still fails (it flees first) — but wire it for feel
+  target.addEventListener("pointerdown", function(e){
+    if(!running||hiding) return;
+    e.stopPropagation();
+    var sb=stage.getBoundingClientRect();
+    flashMissed(e.clientX-sb.left, e.clientY-sb.top);
+    showTaunt(taunts[(Math.random()*taunts.length)|0]);
+    fleePhone(e.clientX,e.clientY);
+    addLost(1);
+    if(hideThresholds.indexOf(lost)>=0) goHide();
+  });
+
+  mall.addEventListener("pointerdown", function(e){
+    e.stopPropagation();
+    if(!hiding) return;
+    unHide(true);
+    addLost(2); // he slips out and two more vanish in the chaos
+    showTaunt("Gotcha— nope! Two more gone 💸");
+  });
+
+  function tickClock(){
+    timeLeft--;
+    if(timeLeft<0) timeLeft=0;
+    timeEl.textContent=timeLeft;
+    if(timeLeft<=0){ endChase(); }
+  }
+
+  function wander(){
+    if(!running||hiding) return;
+    // idle drift so it feels alive
+    placeInStage(target);
+    if(Math.random()<0.25) showTaunt(taunts[(Math.random()*taunts.length)|0]);
+  }
+
+  function startGame(){
+    show("scene-game");
+    running=true; hiding=false; lost=0; timeLeft=TIME_MAX;
+    updateHUD(); timeEl.textContent=timeLeft;
+    mall.classList.remove("show"); target.classList.remove("hidden"); target.classList.add("wiggle");
+    // wait for layout then place
+    setTimeout(function(){ placeInStage(target); },30);
+    clearInterval(wanderTimer); clearInterval(clockTimer);
+    wanderTimer=setInterval(wander,WANDER_MS);
+    clockTimer =setInterval(tickClock,1000);
+  }
+
+  function endChase(){
+    if(!running) return;
+    running=false;
+    clearInterval(wanderTimer); clearInterval(clockTimer);
+    target.classList.remove("wiggle");
+    setTimeout(showEnding,350);
+  }
+
+  /* ================================================= */
+  /* SCENE 3 — the reveal + branching endings          */
+  /* ================================================= */
+  var endCard=document.getElementById("endCard");
+
+  function confettiBurst(){
+    var emojis=["💸","📱","💰","🥲","📉"];
+    for(var i=0;i<28;i++){
+      (function(){
+        var c=document.createElement("div");
+        c.className="confetti";
+        c.textContent=emojis[(Math.random()*emojis.length)|0];
+        c.style.left=(Math.random()*100)+"vw";
+        c.style.animationDuration=(2+Math.random()*2.5)+"s";
+        c.style.animationDelay=(Math.random()*0.6)+"s";
+        c.style.fontSize=(14+Math.random()*20)+"px";
+        document.getElementById("app").appendChild(c);
+        setTimeout(function(){ if(c.parentNode) c.parentNode.removeChild(c); },4800);
+      })();
+    }
+  }
+
+  function playTaxi(done){
+    var taxi=document.getElementById("taxi");
+    var pkg =document.getElementById("pkg");
+    var dust=document.getElementById("dust");
+    if(!taxi||!pkg){ if(done)done(); return; }
+    // 1) taxi drives in from the right
+    honk();
+    taxi.style.animation="taxiIn 1.2s ease-out forwards";
+    setTimeout(function(){
+      // 2) the 50 phones get loaded up
+      screech();
+      pkg.style.animation="pkgHop .75s ease-in forwards";
+      setTimeout(function(){
+        // 3) taxi speeds off to the left with the loot
+        taxi.textContent="🚕💨";
+        taxi.style.animation="taxiOut 1.3s ease-in forwards";
+        dust.textContent="💨";
+        dust.style.animation="dustPuff .8s ease-out forwards";
+        honk();
+        setTimeout(function(){ if(done) done(); }, 1150);
+      }, 620);
+    }, 1150);
+  }
+
+  function showEnding(){
+    show("scene-end");
+    haptic([60,40,60,40,140]);
+    endCard.className="card fade-swap";
+    endCard.innerHTML=''
+      + '<img class="brand" src="images.png" alt="Cellpoint">'
+      + '<h1>Bad luck, Shmolik.</h1>'
+      + '<p class="lead">You lost……</p>'
+      + '<div class="drum" id="drum">🥁 🥁 🥁</div>';
+    drumroll(2200,function(){
+      endCard.querySelector("#drum").outerHTML=
+        '<div class="reveal-num">50</div>'
+        +'<h2>Samsung Galaxy S26 Ultra phones</h2>'
+        +'<p class="lead"><b>₪265,000</b> — watch them drive away…</p>'
+        +'<div class="road" id="road">'
+        +'  <div class="roadbase"></div><div class="roadline"></div>'
+        +'  <div class="pkg" id="pkg"><span class="box">📦</span><span class="pkg-tag">50× S26 Ultra</span></div>'
+        +'  <div class="dust" id="dust"></div>'
+        +'  <div class="taxi" id="taxi">🚕</div>'
+        +'</div>'
+        +'<div id="afterTaxi"></div>';
+      confettiBurst();
+      playTaxi(function(){
+        var after=document.getElementById("afterTaxi");
+        if(!after) return;
+        after.className="fade-swap";
+        after.innerHTML=
+          '<p class="lead" style="margin-top:2px">Gone. Into a taxi. Into the mall. Forever.</p>'
+          +'<p class="muted" style="margin-top:2px">What now, Shmolik?</p>'
+          +'<div class="row" style="margin-top:8px">'
+          +'  <button class="btn ghost" id="endTesta">🔧 Crawl back to Testaphone</button>'
+          +'  <button class="btn gold" id="endEilat">🏝️ Fake your death &amp; flee to Eilat</button>'
+          +'</div>';
+        document.getElementById("endTesta").addEventListener("click",endingTesta);
+        document.getElementById("endEilat").addEventListener("click",endingEilat);
+      });
+    });
+  }
+
+  function endingTesta(){
+    endCard.className="card fade-swap";
+    endCard.innerHTML=''
+      + '<h1>Back to Testaphone 🔧</h1>'
+      + '<img class="end-img" src="testaphone.jpg" alt="TestaPhone">'
+      + '<p class="lead">Minimum wage. Maximum shame. You now fix cracked screens for '
+      + 'the same customers who watched you lose <b>₪265,000</b>.<br>'
+      + '<span class="muted">Eti waves at you every morning. She never forgets.</span></p>'
+      + '<button class="btn" id="again">🔁 Play again</button>';
+    document.getElementById("again").addEventListener("click",restart);
+  }
+
+  function endingEilat(){
+    endCard.className="card fade-swap";
+    endCard.innerHTML=''
+      + '<h1>Gone to Eilat 🏝️</h1>'
+      + '<div style="font-size:64px;margin:6px 0">🕶️🌴🐫</div>'
+      + '<p class="lead">Shmolik boards the last bus south under the name '
+      + '<b>“Moshe Cellpoint.”</b> Somewhere near the Red Sea he sells seashell keychains '
+      + 'and tells tourists a legend about <b>50 phones</b> that vanished into a mall.<br>'
+      + '<span class="muted">Nobody believes him. The phones were never found.</span></p>'
+      + '<button class="btn" id="again">🔁 Play again</button>';
+    document.getElementById("again").addEventListener("click",restart);
+  }
+
+  function restart(){
+    // reset intro
+    noTries=0;
+    doron.textContent=""; doron.classList.remove("show");
+    btnNo.style.position=""; btnNo.style.left=""; btnNo.style.top=""; btnNo.style.transform="";
+    lost=0; timeLeft=TIME_MAX; hiding=false; running=false;
+    show("scene-call");
+  }
+
+  // kick a silent audio unlock on first pointer
+  window.addEventListener("pointerdown",function once(){ ac(); window.removeEventListener("pointerdown",once); },{once:true});
+
+})();
+</script>
+</body>
+</html>
